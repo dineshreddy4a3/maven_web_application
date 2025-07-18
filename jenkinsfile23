@@ -1,5 +1,7 @@
 node {
  
+buildName 'Dev -${BUILD_NUMBER}'
+buildDescription 'Pipeline Script - scriptedway'
  def mavenHome = tool name: "maven 3.8.5"
  
  // checkout stage
@@ -24,7 +26,7 @@ sh "$mavenHome/bin/mvn deploy"
 //Deploy app to tomcat server
 stage('DeployAppintoTomcat'){
 sshagent(['1045ab4b-f2c9-4bfc-803e-e235dc6f6798']) {
-   sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@3.143.230.70:/opt/tomcat9/webapps "
+   sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@18.220.199.115:/opt/tomcat9/webapps "
 }
 }
 
