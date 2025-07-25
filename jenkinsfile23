@@ -1,68 +1,59 @@
 def sendSlackNotifications(String buildStatus = 'STARTED') {
-  // build status of null means successful
-  buildStatus =  buildStatus ?: 'SUCCESSFUL'
+  buildStatus = buildStatus ?: 'SUCCESSFUL'
 
-  // Default values
   def colorName = 'RED'
   def colorCode = '#FF0000'
   def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
   def summary = "${subject} (${env.BUILD_URL})"
 
-  // Override default values based on build status
   if (buildStatus == 'STARTED') {
-    color = 'YELLOW'
-    colorCode = '#FFFF00'
+    colorCode = '#FFFF00' // Yellow
   } else if (buildStatus == 'SUCCESSFUL') {
-    color = 'GREEN'
-    colorCode = '#00FF00'
+    colorCode = '#00FF00' // Green
   } else {
-    color = 'RED'
-    colorCode = '#FF0000'
+    colorCode = '#FF0000' // Red
   }
-  
-    // Send notifications
-  slackSend (color: colorCode, message: summary)
+
+  slackSend(color: colorCode, message: summary)
 }
 
 node {
- 
-buildName 'Dev - ${BUILD_NUMBER}'
-buildDescription 'Pipeline Script - scriptedway'
- def mavenHome = tool name: "maven 3.8.5"
- 
- // checkout stage
-stage('checkoutcode'){
-    git branch: 'development', credentialsId: 'd0e0d4aa-f49b-4b69-b876-80655a979da6', url: 'https://github.com/dineshreddy4a3/maven_web_application.git'
+  try {
+    buildName 'Dev - ${BUILD_NUMBER}'
+    buildDescription 'Pipeline Script - scriptedway'
+
+    def mavenHome = tool name: "maven 3.8.5"
+
+    stage('Checkout Code') {
+      git branch: 'development',
+          credentialsId: 'd0e0d4aa-f49b-4b69-b876-80655a979da6',
+          url: 'https://github.com/dineshreddy4a3/maven_web_application.git'
+    }
+
+    stage('Build') {
+      sh "$mavenHome/bin/mvn clean package"
+    }
+
+    stage('SonarQube Report') {
+      sh "$mavenHome/bin/mvn sonar:sonar"
+    }
+
+    stage('Upload Artifacts to Nexus') {
+      sh "$mavenHome/bin/mvn deploy"
+    }
+
+    stage('Deploy App into Tomcat') {
+      sshagent(['1045ab4b-f2c9-4bfc-803e-e235dc6f6798']) {
+        sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@3.22.233.15:/opt/tomcat9/webapps"
+      }
+    }
+
+    currentBuild.result = 'SUCCESSFUL'
+  } catch (e) {
+    currentBuild.result = 'FAILED'
+    throw e
+  } finally {
+    sendSlackNotifications(currentBuild.result)
+  }
 }
 
-
-//Build stage
-stage('Build'){
-sh "$mavenHome/bin/mvn clean package"
-}
-
-//Generate sonarqube Report
-stage('SonarQubeReport'){
-sh "$mavenHome/bin/mvn sonar:sonar"    
-}
-//uploading to nexus
-stage('Upload artifacts to nexus'){
-sh "$mavenHome/bin/mvn deploy"
-}
-//Deploy app to tomcat server
-stage('DeployAppintoTomcat'){
-sshagent(['1045ab4b-f2c9-4bfc-803e-e235dc6f6798']) {
-   sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@3.22.233.15:/opt/tomcat9/webapps "
-}
-}
-
-*/
-}//Try block closing
-catch(e){
-currentBuild.result = "FAILED"
-}
-finally{
-sendSlackNotifications(currentBuild.result)
-}
-
-} //Node closing
