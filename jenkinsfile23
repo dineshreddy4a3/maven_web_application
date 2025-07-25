@@ -1,41 +1,44 @@
 node {
- 
-buildName 'Dev - ${BUILD_NUMBER}'
-buildDescription 'Pipeline Script - scriptedway'
- def mavenHome = tool name: "maven 3.8.5"
- 
- // checkout stage
-stage('checkoutcode'){
-    git branch: 'development', credentialsId: 'd0e0d4aa-f49b-4b69-b876-80655a979da6', url: 'https://github.com/dineshreddy4a3/maven_web_application.git'
-}
+    buildName "Dev - ${BUILD_NUMBER}"
+    buildDescription 'Pipeline Script - scriptedway'
 
+    def mavenHome = tool name: "maven 3.8.5"
 
-//Build stage
-stage('Build'){
-sh "$mavenHome/bin/mvn clean package"
-}
+    try {
+        // Checkout stage
+        stage('Checkout Code') {
+            git branch: 'development',
+                credentialsId: 'd0e0d4aa-f49b-4b69-b876-80655a979da6',
+                url: 'https://github.com/dineshreddy4a3/maven_web_application.git'
+        }
 
-//Generate sonarqube Report
-stage('SonarQubeReport'){
-sh "$mavenHome/bin/mvn sonar:sonar"    
-}
-//uploading to nexus
-stage('Upload artifacts to nexus'){
-sh "$mavenHome/bin/mvn deploy"
-}
-//Deploy app to tomcat server
-stage('DeployAppintoTomcat'){
-sshagent(['1045ab4b-f2c9-4bfc-803e-e235dc6f6798']) {
-   sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@13.58.160.224:/opt/tomcat9/webapps "
-}
-}
-*/
-}//Try block closing
-catch(e){
-currentBuild.result = "FAILED"
-}
-finally{
-sendSlackNotifications(currentBuild.result)
-}
+        // Build stage
+        stage('Build') {
+            sh "${mavenHome}/bin/mvn clean package"
+        }
 
-} //Node closing
+        // SonarQube Report
+        stage('SonarQube Report') {
+            sh "${mavenHome}/bin/mvn sonar:sonar"
+        }
+
+        // Upload artifacts to Nexus
+        stage('Upload to Nexus') {
+            sh "${mavenHome}/bin/mvn deploy"
+        }
+
+        // Deploy WAR to Tomcat
+        stage('Deploy to Tomcat') {
+            sshagent(['1045ab4b-f2c9-4bfc-803e-e235dc6f6798']) {
+                sh 'scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@3.22.233.15:/opt/tomcat9/webapps'
+            }
+        }
+    } catch (e) {
+        currentBuild.result = "FAILED"
+        throw e
+    } finally {
+        // Optional: define this function or use println instead
+        echo "Sending Slack notification for result: ${currentBuild.result}"
+        // sendSlackNotifications(currentBuild.result)
+    }
+}
